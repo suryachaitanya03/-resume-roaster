@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume Roaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Special+Elite&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF8F3;
+    --paper-shadow: #E8E4D8;
+    --ink: #1C1C1A;
+    --red: #A31621;
+    --red-soft: #C4404A;
+    --pencil: #6B6B63;
+    --green: #7C8A4F;
+    --green-bg: #EEF1E2;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #E5E1D4;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(0,0,0,0.02) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(0,0,0,0.02) 0%, transparent 50%);
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 48px 20px;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--pencil);
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    font-size: 42px;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+  h1 span {
+    color: var(--red);
+    position: relative;
+    display: inline-block;
+  }
+  h1 span::after {
+    content: '';
+    position: absolute;
+    left: -4px; right: -4px; top: 38%;
+    height: 10px;
+    background: rgba(163,22,33,0.15);
+    z-index: -1;
+    transform: skewX(-8deg);
+  }
+
+  .sub {
+    text-align: center;
+    color: var(--pencil);
+    font-size: 15px;
+    margin-bottom: 36px;
+  }
+
+  .paper {
+    background: var(--paper);
+    border-radius: 2px;
+    box-shadow:
+      0 1px 0 var(--paper-shadow),
+      0 12px 24px -8px rgba(0,0,0,0.18),
+      0 2px 6px rgba(0,0,0,0.08);
+    padding: 36px 36px 30px;
+    position: relative;
+    margin-bottom: 24px;
+  }
+
+  .paper::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 8px; right: -8px; bottom: -8px;
+    background: var(--paper-shadow);
+    z-index: -1;
+    border-radius: 2px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    border: none;
+    resize: vertical;
+    font-family: 'Special Elite', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: transparent;
+    outline: none;
+  }
+  textarea::placeholder { color: #A8A498; }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .roast-btn {
+    background: var(--red);
+    color: #fff;
+    padding: 14px 32px;
+    border-radius: 3px;
+    box-shadow: 0 3px 0 #7A0F18;
+    letter-spacing: 0.01em;
+  }
+  .roast-btn:hover { transform: translateY(1px); box-shadow: 0 2px 0 #7A0F18; }
+  .roast-btn:active { transform: translateY(3px); box-shadow: none; }
+  .roast-btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: 0 3px 0 #7A0F18; }
+
+  .example-btn {
+    background: none;
+    color: var(--pencil);
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 8px;
+  }
+
+  .hint {
+    text-align: center;
+    color: #A8A498;
+    font-size: 12px;
+    margin-bottom: 40px;
+  }
+
+  /* ---- Results ---- */
+  .results { display: none; }
+  .results.show { display: block; animation: fadeUp 0.4s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-paper {
+    position: relative;
+    overflow: visible;
+  }
+
+  .stamp {
+    position: absolute;
+    top: -22px;
+    right: -14px;
+    width: 96px;
+    height: 96px;
+    border: 4px solid var(--red);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-12deg);
+    color: var(--red);
+    font-family: 'Special Elite', monospace;
+    font-size: 34px;
+    font-weight: 700;
+    background: rgba(163,22,33,0.03);
+    box-shadow: 0 0 0 2px rgba(163,22,33,0.08);
+    mix-blend-mode: multiply;
+  }
+
+  .headline {
+    font-family: 'Caveat', cursive;
+    font-weight: 700;
+    font-size: 30px;
+    color: var(--red);
+    line-height: 1.25;
+    max-width: 82%;
+    margin-bottom: 22px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--pencil);
+    margin: 26px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #DDD8C8;
+  }
+
+  .critique {
+    margin-bottom: 18px;
+    padding-left: 14px;
+    border-left: 2px solid #EFE2E2;
+  }
+  .critique .quote {
+    font-family: 'Special Elite', monospace;
+    font-size: 13.5px;
+    color: var(--ink);
+    text-decoration: underline wavy var(--red-soft);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 4px;
+    margin-bottom: 4px;
+  }
+  .critique .comment {
+    font-family: 'Caveat', cursive;
+    font-size: 21px;
+    color: var(--red);
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .strength {
+    background: var(--green-bg);
+    border-left: 3px solid var(--green);
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #4A5233;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .tip-box {
+    margin-top: 24px;
+    padding: 16px 18px;
+    background: #FFF9E8;
+    border: 1px dashed #D8C48A;
+    border-radius: 3px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .tip-box strong { color: var(--ink); }
+
+  .again {
+    display: block;
+    margin: 24px auto 0;
+    background: none;
+    color: var(--pencil);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 30px 0;
+    font-family: 'Caveat', cursive;
+    font-size: 24px;
+    color: var(--pencil);
+  }
+  .loading.show { display: block; }
+
+  .error {
+    display: none;
+    text-align: center;
+    color: var(--red);
+    font-size: 13px;
+    margin-top: 10px;
+  }
+  .error.show { display: block; }
+
+  footer {
+    text-align: center;
+    color: #A8A498;
+    font-size: 12px;
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AI-Powered &middot; No Participation Trophies</div>
+  <h1>Resume <span>Roaster</span></h1>
+  <p class="sub">Paste your resume. Get graded like it's 9th grade English class.</p>
+
+  <div class="paper">
+    <textarea id="resumeInput" placeholder="Paste your resume text here...&#10;&#10;e.g. 'Results-driven professional with proven track record of leveraging synergies to drive stakeholder value...'"></textarea>
+  </div>
+
+  <div class="actions">
+    <button class="roast-btn" id="roastBtn">Roast It</button>
+    <button class="example-btn" id="exampleBtn">Try an example</button>
+  </div>
+  <div class="hint">Your resume isn't stored anywhere. This is just for fun (and maybe some real advice).</div>
+  <div class="error" id="errorBox"></div>
+
+  <div class="loading" id="loadingBox">sharpening the red pen...</div>
+
+  <div class="results" id="results">
+    <div class="paper result-paper">
+      <div class="stamp" id="stamp">C+</div>
+      <div class="headline" id="headline"></div>
+
+      <div class="section-label">Line-by-line notes</div>
+      <div id="critiques"></div>
+
+      <div class="section-label">What's actually working</div>
+      <div id="strengths"></div>
+
+      <div class="tip-box" id="tipBox"></div>
+    </div>
+    <button class="again" id="againBtn">Roast another one</button>
+  </div>
+
+  <footer>A pilot project, not career advice</footer>
+</div>
+
+<script>
+const resumeInput = document.getElementById('resumeInput');
+const roastBtn = document.getElementById('roastBtn');
+const exampleBtn = document.getElementById('exampleBtn');
+const againBtn = document.getElementById('againBtn');
+const loadingBox = document.getElementById('loadingBox');
+const results = document.getElementById('results');
+const errorBox = document.getElementById('errorBox');
+
+const loadingMessages = [
+  'sharpening the red pen...',
+  'circling the buzzwords...',
+  'checking for "synergy"...',
+  'grading on a curve (barely)...'
+];
+
+const exampleResume = `Results-driven professional with proven track record of leveraging cross-functional synergies to drive stakeholder value. Responsible for managing team of 5 people. Duties included: emails, meetings, spreadsheets. Proficient in Microsoft Word. References available upon request.
+
+EXPERIENCE
+Marketing Coordinator, Big Company Inc, 2021-Present
+- Helped with social media
+- Attended weekly meetings
+- Was part of a team that launched a product
+
+EDUCATION
+State University, Bachelor of Business, 2021`;
+
+exampleBtn.addEventListener('click', () => {
+  resumeInput.value = exampleResume;
+});
+
+async function callClaude(resumeText) {
+  // Calls our own serverless function (/api/roast), which holds the
+  // Anthropic API key server-side. The browser never sees the key.
+  const response = await fetch("/api/roast", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resumeText })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || `Server error: ${response.status}`);
+  }
+
+  return data;
+}
+
+function renderResults(data) {
+  document.getElementById('stamp').textContent = data.grade;
+  document.getElementById('headline').textContent = data.headline;
+
+  const critiquesEl = document.getElementById('critiques');
+  critiquesEl.innerHTML = '';
+  data.critiques.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'critique';
+    div.innerHTML = `<div class="quote">"${c.quote}"</div><div class="comment">${c.comment}</div>`;
+    critiquesEl.appendChild(div);
+  });
+
+  const strengthsEl = document.getElementById('strengths');
+  strengthsEl.innerHTML = '';
+  data.strengths.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'strength';
+    div.textContent = s;
+    strengthsEl.appendChild(div);
+  });
+
+  document.getElementById('tipBox').innerHTML = `<strong>One thing to fix:</strong> ${data.tip}`;
+
+  results.classList.add('show');
+  results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function handleRoast() {
+  const text = resumeInput.value.trim();
+  errorBox.classList.remove('show');
+  if (text.length < 40) {
+    errorBox.textContent = "Paste a bit more of your resume — that's too short to roast fairly.";
+    errorBox.classList.add('show');
+    return;
+  }
+
+  roastBtn.disabled = true;
+  results.classList.remove('show');
+  loadingBox.textContent = loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+  loadingBox.classList.add('show');
+
+  try {
+    const data = await callClaude(text);
+    renderResults(data);
+  } catch (err) {
+    errorBox.textContent = "Something went wrong grading this one. Try again in a moment.";
+    errorBox.classList.add('show');
+    console.error(err);
+  } finally {
+    loadingBox.classList.remove('show');
+    roastBtn.disabled = false;
+  }
+}
+
+roastBtn.addEventListener('click', handleRoast);
+againBtn.addEventListener('click', () => {
+  results.classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+</script>
+</body>
+</html>
