@@ -42,7 +42,8 @@ Include 3 to 5 items in critiques. Be funny but never cruel, never comment on th
       body: JSON.stringify({
         model: 'openai/gpt-oss-120b',
         response_format: { type: 'json_object' },
-        max_completion_tokens: 1000,
+        reasoning_effort: 'low',
+        max_completion_tokens: 2000,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Here is the resume to roast:\n\n${trimmedResume}` },
@@ -53,6 +54,22 @@ Include 3 to 5 items in critiques. Be funny but never cruel, never comment on th
     if (!response.ok) {
       const errText = await response.text();
       console.error('Groq API error:', response.status, errText);
+
+      // Groq sometimes includes the model's raw (invalid-JSON) attempt in
+      // a "failed_generation" field. Try to salvage it before giving up,
+      // since it's often just missing a closing brace/quote.
+      try {
+        const errData = JSON.parse(errText);
+        const salvage = errData?.error?.failed_generation;
+        if (salvage) {
+          const cleaned = salvage.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+          const parsed = JSON.parse(cleaned);
+          return res.status(200).json(parsed);
+        }
+      } catch (salvageErr) {
+        // Salvage attempt failed too — fall through to the generic error below.
+      }
+
       return res.status(502).json({ error: 'The grading service had a hiccup. Try again in a moment.' });
     }
 
