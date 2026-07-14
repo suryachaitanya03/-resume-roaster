@@ -1,6 +1,6 @@
 // Vercel serverless function (Node.js runtime).
-// This runs on the server, so process.env.ANTHROPIC_API_KEY is never
-// exposed to the browser — that's the whole point of this file existing.
+// Uses Google's Gemini API (free tier, no credit card required).
+// GEMINI_API_KEY lives in Vercel's environment variables, never in code.
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,7 +13,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Paste a bit more of your resume — that\'s too short to roast fairly.' });
   }
 
-  // Basic length guard so no one can send a huge payload and run up your bill.
   const trimmedResume = resumeText.trim().slice(0, 6000);
 
   const systemPrompt = `You are a witty, sharp resume critic writing in the voice of a strict but fair high-school English teacher grading an essay. Your tone is funny and pointedly honest about CLICHES, VAGUENESS, and WEAK PHRASING in the resume — never about the person's worth, intelligence, or career choices. Always find at least 2 genuinely good things, and always end with one concrete, actionable improvement.
@@ -32,36 +31,38 @@ Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this s
 Include 3 to 5 items in critiques. Be funny but never cruel, never comment on the person's identity, appearance, or worth — only on the writing and content choices in the document.`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const model = 'gemini-2.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [
-          { role: 'user', content: `Here is the resume to roast:\n\n${trimmedResume}` },
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [
+          { role: 'user', parts: [{ text: `Here is the resume to roast:\n\n${trimmedResume}` }] },
         ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 1000,
+        },
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Anthropic API error:', response.status, errText);
+      console.error('Gemini API error:', response.status, errText);
       return res.status(502).json({ error: 'The grading service had a hiccup. Try again in a moment.' });
     }
 
     const data = await response.json();
-    const textBlock = data.content.find((b) => b.type === 'text');
-    if (!textBlock) {
+    const textOut = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!textOut) {
+      console.error('Unexpected Gemini response shape:', JSON.stringify(data));
       return res.status(502).json({ error: 'No response from the model. Try again.' });
     }
 
-    const cleaned = textBlock.text.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+    const cleaned = textOut.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(cleaned);
 
     return res.status(200).json(parsed);
