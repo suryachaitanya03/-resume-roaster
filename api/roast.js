@@ -17,21 +17,9 @@ export default async function handler(req, res) {
 
   const systemPrompt = `You are a witty, sharp resume critic writing in the voice of a strict but fair high-school English teacher grading an essay. Your tone is funny and pointedly honest about CLICHES, VAGUENESS, and WEAK PHRASING in the resume — never about the person's worth, intelligence, or career choices. Always find at least 2 genuinely good things, and always end with one concrete, actionable improvement.
 
-Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape:
-{
-  "grade": "a letter grade like B-, C+, D, etc",
-  "headline": "one witty one-line overall verdict, under 18 words, in a teacher's red-pen voice",
-  "critiques": [
-    {"quote": "a short phrase (under 10 words) taken or closely paraphrased from the resume that is weak, vague, or cliche", "comment": "a witty red-pen style note, under 14 words, funny but constructive"}
-  ],
-  "strengths": ["a genuine specific compliment, under 20 words", "a second genuine specific compliment, under 20 words"],
-  "tip": "one concrete, actionable next step to improve the resume, under 30 words"
-}
-
 Include 3 to 5 items in critiques. Be funny but never cruel, never comment on the person's identity, appearance, or worth — only on the writing and content choices in the document.`;
 
   try {
-    // Updated to the current standard model identifier
     const model = 'gemini-3.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
@@ -45,6 +33,33 @@ Include 3 to 5 items in critiques. Be funny but never cruel, never comment on th
         ],
         generationConfig: {
           responseMimeType: 'application/json',
+          // Force the model to output the precise JSON schema structure required
+          responseSchema: {
+            type: "object",
+            properties: {
+              grade: { type: "string", description: "a letter grade like B-, C+, D, etc" },
+              headline: { type: "string", description: "one witty one-line overall verdict, under 18 words, in a teacher's red-pen voice" },
+              critiques: {
+                type: "array",
+                description: "Include 3 to 5 items in critiques",
+                items: {
+                  type: "object",
+                  properties: {
+                    quote: { type: "string", description: "a short phrase taken or closely paraphrased from the resume that is weak, vague, or cliche" },
+                    comment: { type: "string", description: "a witty red-pen style note, funny but constructive" }
+                  },
+                  required: ["quote", "comment"]
+                }
+              },
+              strengths: {
+                type: "array",
+                items: { type: "string" },
+                description: "Exactly two genuine specific compliments, each under 20 words"
+              },
+              tip: { type: "string", description: "one concrete, actionable next step to improve the resume, under 30 words" }
+            },
+            required: ["grade", "headline", "critiques", "strengths", "tip"]
+          },
           maxOutputTokens: 1000,
         },
       }),
@@ -63,8 +78,9 @@ Include 3 to 5 items in critiques. Be funny but never cruel, never comment on th
       return res.status(502).json({ error: 'No response from the model. Try again.' });
     }
 
-    const cleaned = textOut.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    const parsed = JSON.parse(cleaned);
+    // Since responseSchema guarantees perfect JSON string layout with no markdown fences, 
+    // we can parse it directly and cleanly safely.
+    const parsed = JSON.parse(textOut.trim());
 
     return res.status(200).json(parsed);
   } catch (err) {
