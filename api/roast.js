@@ -31,7 +31,8 @@ Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this s
 Include 3 to 5 items in critiques. Be funny but never cruel, never comment on the person's identity, appearance, or worth — only on the writing and content choices in the document.`;
 
   try {
-    const model = 'gemini-2.5-flash';
+    // Updated to the current standard model identifier
+    const model = 'gemini-3.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
     const response = await fetch(url, {
