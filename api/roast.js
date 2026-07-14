@@ -1,90 +1,116 @@
-// Vercel serverless function (Node.js runtime).
-// Uses Google's Gemini API (free tier, no credit card required).
-// GEMINI_API_KEY lives in Vercel's environment variables, never in code.
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const { resumeText } = req.body || {};
 
-  if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length < 40) {
-    return res.status(400).json({ error: 'Paste a bit more of your resume — that\'s too short to roast fairly.' });
+  if (!resumeText || typeof resumeText !== "string" || resumeText.trim().length < 40) {
+    return res.status(400).json({
+      error: "Paste a bit more of your resume — that's too short to roast fairly."
+    });
   }
 
   const trimmedResume = resumeText.trim().slice(0, 6000);
 
-  const systemPrompt = `You are a witty, sharp resume critic writing in the voice of a strict but fair high-school English teacher grading an essay. Your tone is funny and pointedly honest about CLICHES, VAGUENESS, and WEAK PHRASING in the resume — never about the person's worth, intelligence, or career choices. Always find at least 2 genuinely good things, and always end with one concrete, actionable improvement.
+  const systemPrompt = `You are a witty, sharp resume critic writing in the voice of a strict but fair high-school English teacher grading an essay.
 
-Include 3 to 5 items in critiques. Be funny but never cruel, never comment on the person's identity, appearance, or worth — only on the writing and content choices in the document.`;
+Be funny but never cruel.
+
+Return ONLY valid JSON matching the provided schema. Do not wrap the JSON in markdown.`;
 
   try {
-    const model = 'gemini-3.5-flash';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const model = "gemini-2.5-flash";
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [
-          { role: 'user', parts: [{ text: `Here is the resume to roast:\n\n${trimmedResume}` }] },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          // Force the model to output the precise JSON schema structure required
-          responseSchema: {
-            type: "object",
-            properties: {
-              grade: { type: "string", description: "a letter grade like B-, C+, D, etc" },
-              headline: { type: "string", description: "one witty one-line overall verdict, under 18 words, in a teacher's red-pen voice" },
-              critiques: {
-                type: "array",
-                description: "Include 3 to 5 items in critiques",
-                items: {
-                  type: "object",
-                  properties: {
-                    quote: { type: "string", description: "a short phrase taken or closely paraphrased from the resume that is weak, vague, or cliche" },
-                    comment: { type: "string", description: "a witty red-pen style note, funny but constructive" }
-                  },
-                  required: ["quote", "comment"]
-                }
-              },
-              strengths: {
-                type: "array",
-                items: { type: "string" },
-                description: "Exactly two genuine specific compliments, each under 20 words"
-              },
-              tip: { type: "string", description: "one concrete, actionable next step to improve the resume, under 30 words" }
-            },
-            required: ["grade", "headline", "critiques", "strengths", "tip"]
-          },
-          maxOutputTokens: 1000,
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Resume:\n\n${trimmedResume}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 1000,
+            temperature: 0.8,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('Gemini API error:', response.status, errText);
-      return res.status(502).json({ error: 'The grading service had a hiccup. Try again in a moment.' });
+      const errorText = await response.text();
+
+      console.error("Gemini API Error:");
+      console.error(errorText);
+
+      return res.status(502).json({
+        error: "Gemini API request failed.",
+        details: errorText,
+      });
     }
 
     const data = await response.json();
-    const textOut = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    console.log("FULL GEMINI RESPONSE:");
+    console.log(JSON.stringify(data, null, 2));
+
+    const textOut =
+      data.candidates?.[0]?.content?.parts?.[0]?.text;
+
     if (!textOut) {
-      console.error('Unexpected Gemini response shape:', JSON.stringify(data));
-      return res.status(502).json({ error: 'No response from the model. Try again.' });
+      return res.status(500).json({
+        error: "Gemini returned no text.",
+        data,
+      });
     }
 
-    // Since responseSchema guarantees perfect JSON string layout with no markdown fences, 
-    // we can parse it directly and cleanly safely.
-    const parsed = JSON.parse(textOut.trim());
+    console.log("RAW TEXT:");
+    console.log(textOut);
+
+    // Remove markdown fences if present
+    let cleaned = textOut.trim();
+
+    cleaned = cleaned
+      .replace(/^```json/i, "")
+      .replace(/^```/i, "")
+      .replace(/```$/i, "")
+      .trim();
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      console.error("JSON Parse Error");
+      console.error(cleaned);
+
+      return res.status(500).json({
+        error: "Gemini returned invalid JSON.",
+        raw: cleaned,
+      });
+    }
 
     return res.status(200).json(parsed);
   } catch (err) {
-    console.error('Roast handler error:', err);
-    return res.status(500).json({ error: 'Something went wrong grading this one. Try again in a moment.' });
+    console.error("Roast handler error:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
   }
 }
